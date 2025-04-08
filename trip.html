@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trip Planner</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+</head>
+<body>
+  <div class="container animate__animated animate__fadeIn">
+    <header class="app-header">
+      <div class="user-greeting">
+        <i class="fas fa-map-marked-alt"></i>
+        <h2>Welcome, <span id="user" class="highlight"></span>!</h2>
+      </div>
+      <button id="logoutBtn" class="btn-logout"><i class="fas fa-sign-out-alt"></i> Logout</button>
+    </header>
+
+    <div class="plan-form">
+      <h3><i class="fas fa-compass"></i> Create Your Trip Plan</h3>
+      <div class="input-group">
+        <div class="form-control">
+          <label for="cityInput"><i class="fas fa-city"></i> City</label>
+          <input type="text" id="cityInput" placeholder="Enter Indian City" />
+        </div>
+        
+        <div class="form-control">
+          <label for="daysInput"><i class="fas fa-calendar-day"></i> Duration</label>
+          <input type="number" id="daysInput" placeholder="Days (e.g. 2)" min="1" />
+        </div>
+        
+        <div class="form-control">
+          <label for="typeInput"><i class="fas fa-rupee-sign"></i> Budget Type</label>
+          <select id="typeInput">
+            <option value="budget">Budget</option>
+            <option value="luxury">Luxury</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="btn-primary" onclick="getTripPlan()">
+        <i class="fas fa-magic"></i> Generate Plan
+      </button>
+    </div>
+
+    <div class="result-container">
+      <div id="loading" class="loading" style="display: none;">
+        <div class="spinner"></div>
+        <p>Crafting your perfect trip plan...</p>
+      </div>
+      
+      <div id="output-container" class="output-wrap" style="display: none;">
+        <h3 class="result-title"><i class="fas fa-route"></i> Your Trip Plan</h3>
+        <pre id="output" class="output-text"></pre>
+        <button onclick="savePlan()" id="saveBtn" class="btn-secondary">
+          <i class="fas fa-bookmark"></i> Save This Plan
+        </button>
+      </div>
+    </div>
+
+    <div class="saved-plans-section">
+      <h3><i class="fas fa-suitcase"></i> Your Saved Plans</h3>
+      <div id="savedPlans" class="saved-plans-container"></div>
+    </div>
+  </div>
+
+  <script>
+    const userName = localStorage.getItem("userName") || "Explorer";
+    document.getElementById("user").innerText = userName;
+
+    let currentPlan = "";
+
+    // Logout functionality
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      localStorage.removeItem("userName");
+      window.location.href = "index.html";
+    });
+
+    async function getTripPlan() {
+      const city = document.getElementById("cityInput").value;
+      const type = document.getElementById("typeInput").value;
+      const days = document.getElementById("daysInput").value;
+
+      if (!city || !days) {
+        showNotification("Please enter city and number of days.", "error");
+        return;
+      }
+
+      document.getElementById("loading").style.display = "flex";
+      document.getElementById("output-container").style.display = "none";
+
+      try {
+        const res = await fetch("http://localhost:5000/trip-plan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ city, type, days })
+        });
+
+        const data = await res.json();
+        currentPlan = data.tripPlan || data.error;
+        document.getElementById("output").innerText = currentPlan;
+        document.getElementById("output-container").style.display = "block";
+        
+        // Animate the result appearance
+        document.getElementById("output-container").classList.add("animate__animated", "animate__fadeInUp");
+        setTimeout(() => {
+          document.getElementById("output-container").classList.remove("animate__animated", "animate__fadeInUp");
+        }, 1000);
+      } catch (err) {
+        document.getElementById("output").innerText = "Error fetching plan.";
+        document.getElementById("output-container").style.display = "block";
+        showNotification("Error fetching plan. Please try again.", "error");
+      }
+
+      document.getElementById("loading").style.display = "none";
+    }
+
+    async function savePlan() {
+      const city = document.getElementById("cityInput").value;
+      const type = document.getElementById("typeInput").value;
+      const days = parseInt(document.getElementById("daysInput").value);
+
+      const body = {
+        user: userName,
+        city,
+        type,
+        days,
+        plan: currentPlan
+      };
+
+      try {
+        const res = await fetch("http://localhost:5000/save-plan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+
+        const data = await res.json();
+        showNotification(data.message, "success");
+        fetchSavedPlans();
+      } catch (err) {
+        showNotification("Error saving plan.", "error");
+      }
+    }
+
+    async function fetchSavedPlans() {
+      try {
+        const res = await fetch(`http://localhost:5000/get-plans/${userName}`);
+        const plans = await res.json();
+        const container = document.getElementById("savedPlans");
+        container.innerHTML = "";
+
+        if (plans.length === 0) {
+          container.innerHTML = "<p class='no-plans'>No plans saved yet. Create your first plan!</p>";
+          return;
+        }
+
+        plans.forEach((plan, index) => {
+          const div = document.createElement("div");
+          div.className = "plan-card animate__animated animate__fadeIn";
+          div.style.animationDelay = `${index * 0.1}s`;
+          
+          div.innerHTML = `
+            <div class="plan-header">
+              <h4><i class="fas fa-map-marker-alt"></i> ${plan.city}</h4>
+              <div class="plan-meta">
+                <span class="plan-type ${plan.type}">${plan.type}</span>
+                <span class="plan-days"><i class="fas fa-clock"></i> ${plan.days} days</span>
+              </div>
+              <button class="delete-btn" onclick="confirmDelete('${plan._id}', '${plan.city}')">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+            <div class="plan-content">
+              <pre>${plan.plan}</pre>
+            </div>
+            <div class="plan-actions">
+              <button class="btn-expand" onclick="toggleExpand(this)">
+                <i class="fas fa-chevron-down"></i> View Details
+              </button>
+            </div>
+          `;
+          container.appendChild(div);
+        });
+      } catch (err) {
+        console.error("Error fetching saved plans:", err);
+        showNotification("Error fetching saved plans.", "error");
+      }
+    }
+
+    function confirmDelete(id, city) {
+      if (confirm(`Are you sure you want to delete your plan for ${city}?`)) {
+        deletePlan(id);
+      }
+    }
+
+    async function deletePlan(id) {
+      try {
+        const res = await fetch(`http://localhost:5000/delete-plan/${id}`, {
+          method: "DELETE"
+        });
+
+        const data = await res.json();
+        showNotification(data.message, "success");
+        fetchSavedPlans();
+      } catch (err) {
+        showNotification("Error deleting plan.", "error");
+      }
+    }
+
+    function toggleExpand(btn) {
+      const planCard = btn.closest('.plan-card');
+      planCard.classList.toggle('expanded');
+      
+      if (planCard.classList.contains('expanded')) {
+        btn.innerHTML = '<i class="fas fa-chevron-up"></i> Hide Details';
+      } else {
+        btn.innerHTML = '<i class="fas fa-chevron-down"></i> View Details';
+      }
+    }
+
+    function showNotification(message, type) {
+      const notification = document.createElement("div");
+      notification.className = `notification ${type} animate__animated animate__fadeInRight`;
+      notification.innerHTML = `
+        <div class="notification-icon">
+          <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+        </div>
+        <div class="notification-message">${message}</div>
+      `;
+      
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        notification.classList.remove("animate__fadeInRight");
+        notification.classList.add("animate__fadeOutRight");
+        setTimeout(() => {
+          notification.remove();
+        }, 500);
+      }, 3000);
+    }
+
+    // Fetch saved plans on page load
+    window.onload = function() {
+      fetchSavedPlans();
+    };
+  </script>
+</body>
+</html>
