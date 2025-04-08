@@ -10,4 +10,6 @@ const firebaseConfig = {
   
   // Initialize Firebase (compat)
   firebase.initializeApp(firebaseConfig);
-  
+
+  const backendURL = "https://trip-planner-backend-wlvx.onrender.com";
+  window.backendURL = backendURL;
