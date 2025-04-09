@@ -92,7 +92,7 @@
       document.getElementById("output-container").style.display = "none";
 
       try {
-        const res = await fetch("https://trip-planner-backend-wlvx.onrender.com", {
+        const res = await fetch("https://trip-planner-backend-wlvx.onrender.com/trip-plan", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ city, type, days })
@@ -131,7 +131,7 @@
       };
 
       try {
-        const res = await fetch("http://localhost:5000/save-plan", {
+        const res = await fetch("https://trip-planner-backend-wlvx.onrender.com/save-plan", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body)
@@ -147,7 +147,7 @@
 
     async function fetchSavedPlans() {
       try {
-        const res = await fetch(`http://localhost:5000/get-plans/${userName}`);
+        const res = await fetch(`https://trip-planner-backend-wlvx.onrender.com/get-plans/${userName}`);
         const plans = await res.json();
         const container = document.getElementById("savedPlans");
         container.innerHTML = "";
@@ -198,7 +198,7 @@
 
     async function deletePlan(id) {
       try {
-        const res = await fetch(`http://localhost:5000/delete-plan/${id}`, {
+        const res = await fetch(`https://trip-planner-backend-wlvx.onrender.com/delete-plan/${id}`, {
           method: "DELETE"
         });
 
