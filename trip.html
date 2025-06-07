@@ -67,185 +67,182 @@
   </div>
 
   <script>
-    const userName = localStorage.getItem("userName") || "Explorer";
-    document.getElementById("user").innerText = userName;
+  const userName = localStorage.getItem("userName") || "Explorer";
+  document.getElementById("user").innerText = userName;
 
-    let currentPlan = "";
+  const BACKEND_URL = "https://trip-planner-backend-wlvx.onrender.com";
+  let currentPlan = "";
 
-    // Logout functionality
-    document.getElementById("logoutBtn").addEventListener("click", () => {
-      localStorage.removeItem("userName");
-      window.location.href = "index.html";
-    });
+  // Logout functionality
+  document.getElementById("logoutBtn").addEventListener("click", () => {
+    localStorage.removeItem("userName");
+    window.location.href = "index.html";
+  });
 
-    async function getTripPlan() {
-      const city = document.getElementById("cityInput").value;
-      const type = document.getElementById("typeInput").value;
-      const days = document.getElementById("daysInput").value;
+  async function getTripPlan() {
+    const city = document.getElementById("cityInput").value.trim();
+    const type = document.getElementById("typeInput").value;
+    const days = document.getElementById("daysInput").value.trim();
 
-      if (!city || !days) {
-        showNotification("Please enter city and number of days.", "error");
+    if (!city || !days) {
+      showNotification("Please enter city and number of days.", "error");
+      return;
+    }
+
+    document.getElementById("loading").style.display = "flex";
+    document.getElementById("output-container").style.display = "none";
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/trip-plan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ city, type, days })
+      });
+      const data = await res.json();
+      currentPlan = data.tripPlan || data.error || "No plan generated.";
+      document.getElementById("output").innerText = currentPlan;
+      document.getElementById("output-container").style.display = "block";
+
+      // Animate result
+      const outputContainer = document.getElementById("output-container");
+      outputContainer.classList.add("animate__animated", "animate__fadeInUp");
+      setTimeout(() => {
+        outputContainer.classList.remove("animate__animated", "animate__fadeInUp");
+      }, 1000);
+    } catch (err) {
+      document.getElementById("output").innerText = "Error fetching plan.";
+      document.getElementById("output-container").style.display = "block";
+      showNotification("Error fetching plan. Please try again.", "error");
+    }
+    document.getElementById("loading").style.display = "none";
+  }
+
+  async function savePlan() {
+    const city = document.getElementById("cityInput").value.trim();
+    const type = document.getElementById("typeInput").value;
+    const days = parseInt(document.getElementById("daysInput").value);
+
+    if (!currentPlan || !city || !days) {
+      showNotification("No plan to save or missing details.", "error");
+      return;
+    }
+
+    const body = {
+      user: userName,
+      city,
+      type,
+      days,
+      plan: currentPlan
+    };
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/save-plan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      showNotification(data.message, "success");
+      fetchSavedPlans();
+    } catch (err) {
+      showNotification("Error saving plan.", "error");
+    }
+  }
+
+  async function fetchSavedPlans() {
+    try {
+      const res = await fetch(`${BACKEND_URL}/get-plans/${userName}`);
+      const plans = await res.json();
+      const container = document.getElementById("savedPlans");
+      container.innerHTML = "";
+
+      if (!Array.isArray(plans) || plans.length === 0) {
+        container.innerHTML = "<p class='no-plans'>No plans saved yet. Create your first plan!</p>";
         return;
       }
 
-      document.getElementById("loading").style.display = "flex";
-      document.getElementById("output-container").style.display = "none";
+      plans.forEach((plan, index) => {
+        const div = document.createElement("div");
+        div.className = "plan-card animate__animated animate__fadeIn";
+        div.style.animationDelay = `${index * 0.1}s`;
 
-      try {
-        const res = await fetch("https://trip-planner-backend-wlvx.onrender.com/trip-plan", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ city, type, days })
-        });
-
-        const data = await res.json();
-        currentPlan = data.tripPlan || data.error;
-        document.getElementById("output").innerText = currentPlan;
-        document.getElementById("output-container").style.display = "block";
-        
-        // Animate the result appearance
-        document.getElementById("output-container").classList.add("animate__animated", "animate__fadeInUp");
-        setTimeout(() => {
-          document.getElementById("output-container").classList.remove("animate__animated", "animate__fadeInUp");
-        }, 1000);
-      } catch (err) {
-        document.getElementById("output").innerText = "Error fetching plan.";
-        document.getElementById("output-container").style.display = "block";
-        showNotification("Error fetching plan. Please try again.", "error");
-      }
-
-      document.getElementById("loading").style.display = "none";
-    }
-
-    async function savePlan() {
-      const city = document.getElementById("cityInput").value;
-      const type = document.getElementById("typeInput").value;
-      const days = parseInt(document.getElementById("daysInput").value);
-
-      const body = {
-        user: userName,
-        city,
-        type,
-        days,
-        plan: currentPlan
-      };
-
-      try {
-        const res = await fetch("https://trip-planner-backend-wlvx.onrender.com/save-plan", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body)
-        });
-
-        const data = await res.json();
-        showNotification(data.message, "success");
-        fetchSavedPlans();
-      } catch (err) {
-        showNotification("Error saving plan.", "error");
-      }
-    }
-
-    async function fetchSavedPlans() {
-      try {
-        const res = await fetch(`https://trip-planner-backend-wlvx.onrender.com/get-plans/${userName}`);
-        const plans = await res.json();
-        const container = document.getElementById("savedPlans");
-        container.innerHTML = "";
-
-        if (plans.length === 0) {
-          container.innerHTML = "<p class='no-plans'>No plans saved yet. Create your first plan!</p>";
-          return;
-        }
-
-        plans.forEach((plan, index) => {
-          const div = document.createElement("div");
-          div.className = "plan-card animate__animated animate__fadeIn";
-          div.style.animationDelay = `${index * 0.1}s`;
-          
-          div.innerHTML = `
-            <div class="plan-header">
-              <h4><i class="fas fa-map-marker-alt"></i> ${plan.city}</h4>
-              <div class="plan-meta">
-                <span class="plan-type ${plan.type}">${plan.type}</span>
-                <span class="plan-days"><i class="fas fa-clock"></i> ${plan.days} days</span>
-              </div>
-              <button class="delete-btn" onclick="confirmDelete('${plan._id}', '${plan.city}')">
-                <i class="fas fa-trash"></i>
-              </button>
+        div.innerHTML = `
+          <div class="plan-header">
+            <h4><i class="fas fa-map-marker-alt"></i> ${plan.city}</h4>
+            <div class="plan-meta">
+              <span class="plan-type ${plan.type}">${plan.type}</span>
+              <span class="plan-days"><i class="fas fa-clock"></i> ${plan.days} days</span>
             </div>
-            <div class="plan-content">
-              <pre>${plan.plan}</pre>
-            </div>
-            <div class="plan-actions">
-              <button class="btn-expand" onclick="toggleExpand(this)">
-                <i class="fas fa-chevron-down"></i> View Details
-              </button>
-            </div>
-          `;
-          container.appendChild(div);
-        });
-      } catch (err) {
-        console.error("Error fetching saved plans:", err);
-        showNotification("Error fetching saved plans.", "error");
-      }
+            <button class="delete-btn" onclick="confirmDelete('${plan._id}', '${plan.city}')">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+          <div class="plan-content">
+            <pre>${plan.plan}</pre>
+          </div>
+          <div class="plan-actions">
+            <button class="btn-expand" onclick="toggleExpand(this)">
+              <i class="fas fa-chevron-down"></i> View Details
+            </button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    } catch (err) {
+      console.error("Error fetching saved plans:", err);
+      showNotification("Error fetching saved plans.", "error");
     }
+  }
 
-    function confirmDelete(id, city) {
-      if (confirm(`Are you sure you want to delete your plan for ${city}?`)) {
-        deletePlan(id);
-      }
+  function confirmDelete(id, city) {
+    if (confirm(`Are you sure you want to delete your plan for ${city}?`)) {
+      deletePlan(id);
     }
+  }
 
-    async function deletePlan(id) {
-      try {
-        const res = await fetch(`https://trip-planner-backend-wlvx.onrender.com/delete-plan/${id}`, {
-          method: "DELETE"
-        });
-
-        const data = await res.json();
-        showNotification(data.message, "success");
-        fetchSavedPlans();
-      } catch (err) {
-        showNotification("Error deleting plan.", "error");
-      }
-    }
-
-    function toggleExpand(btn) {
-      const planCard = btn.closest('.plan-card');
-      planCard.classList.toggle('expanded');
-      
-      if (planCard.classList.contains('expanded')) {
-        btn.innerHTML = '<i class="fas fa-chevron-up"></i> Hide Details';
-      } else {
-        btn.innerHTML = '<i class="fas fa-chevron-down"></i> View Details';
-      }
-    }
-
-    function showNotification(message, type) {
-      const notification = document.createElement("div");
-      notification.className = `notification ${type} animate__animated animate__fadeInRight`;
-      notification.innerHTML = `
-        <div class="notification-icon">
-          <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
-        </div>
-        <div class="notification-message">${message}</div>
-      `;
-      
-      document.body.appendChild(notification);
-      
-      setTimeout(() => {
-        notification.classList.remove("animate__fadeInRight");
-        notification.classList.add("animate__fadeOutRight");
-        setTimeout(() => {
-          notification.remove();
-        }, 500);
-      }, 3000);
-    }
-
-    // Fetch saved plans on page load
-    window.onload = function() {
+  async function deletePlan(id) {
+    try {
+      const res = await fetch(`${BACKEND_URL}/delete-plan/${id}`, {
+        method: "DELETE"
+      });
+      const data = await res.json();
+      showNotification(data.message, "success");
       fetchSavedPlans();
-    };
+    } catch (err) {
+      showNotification("Error deleting plan.", "error");
+    }
+  }
+
+  function toggleExpand(btn) {
+    const planCard = btn.closest('.plan-card');
+    planCard.classList.toggle('expanded');
+    btn.innerHTML = planCard.classList.contains('expanded')
+      ? '<i class="fas fa-chevron-up"></i> Hide Details'
+      : '<i class="fas fa-chevron-down"></i> View Details';
+  }
+
+  function showNotification(message, type) {
+    const notification = document.createElement("div");
+    notification.className = `notification ${type} animate__animated animate__fadeInRight`;
+    notification.innerHTML = `
+      <div class="notification-icon">
+        <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+      </div>
+      <div class="notification-message">${message}</div>
+    `;
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+      notification.classList.remove("animate__fadeInRight");
+      notification.classList.add("animate__fadeOutRight");
+      setTimeout(() => {
+        notification.remove();
+      }, 500);
+    }, 3000);
+  }
+
+  // Fetch saved plans on page load
+  window.onload = fetchSavedPlans;
   </script>
 </body>
 </html>
